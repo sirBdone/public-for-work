@@ -1,0 +1,84 @@
+function Get-PackageRevisionDate {
+    # Load Configuration Manager PowerShell module
+    Import-Module "$($env:SMS_ADMIN_UI_PATH)\..\ConfigurationManager.psd1"
+
+    # Set the site code and connect to the Configuration Manager site
+    $siteCode = "XYZ"  # Replace with your site code
+    $cmsite = Get-CMServerConnection -SiteCode $siteCode
+
+    # Get all available packages
+    $packages = Get-CMPackage
+
+    # Display packages in a numbered list
+    Write-Host "Available Packages:"
+    Write-Host "0: All packages (show all with their latest revision date)"
+    for ($i = 0; $i -lt $packages.Count; $i++) {
+        Write-Host "$($i+1): $($packages[$i].Name)"
+    }
+
+    # Ask the user to select a package by number, type the package name, or select 'all'
+    $input = Read-Host "`nEnter the package number to select, '0' for all, or type the package name"
+
+    # If user chooses 'all', display a table of all packages with their latest revision date
+    if ($input -eq '0') {
+        # Create an empty array to hold the result
+        $result = @()
+
+        foreach ($package in $packages) {
+            # Get the package ID
+            $packageID = $package.PackageID
+
+            # Retrieve the revision history for the package
+            $revisions = Get-CMPackageRevisionHistory -PackageId $packageID
+
+            # Get the latest revision
+            $latestRevision = $revisions | Sort-Object -Property RevisionDate -Descending | Select-Object -First 1
+
+            # Add the package name and latest revision date to the result
+            $result += [pscustomobject]@{
+                PackageName = $package.Name
+                LatestRevisionDate = $latestRevision.RevisionDate
+            }
+        }
+
+        # Display the result as a table
+        $result | Format-Table -AutoSize
+        return
+    }
+
+    # Check if input is a number
+    if ([int]::TryParse($input, [ref]$null)) {
+        $selectedIndex = [int]$input - 1
+
+        # Validate the selected index
+        if ($selectedIndex -ge 0 -and $selectedIndex -lt $packages.Count) {
+            $selectedPackage = $packages[$selectedIndex]
+        } else {
+            Write-Host "Invalid selection. Please run the script again and select a valid number."
+            return
+        }
+    } else {
+        # If the input isn't a number, treat it as a package name and try to find the package
+        $selectedPackage = $packages | Where-Object { $_.Name -eq $input }
+
+        if (-not $selectedPackage) {
+            Write-Host "Package not found. Please check the name and run the script again."
+            return
+        }
+    }
+
+    # Get the package ID
+    $packageID = $selectedPackage.PackageID
+
+    # Retrieve the revision history for the selected package
+    $revisions = Get-CMPackageRevisionHistory -PackageId $packageID
+
+    # Output the latest revision details
+    $latestRevision = $revisions | Sort-Object -Property RevisionDate -Descending | Select-Object -First 1
+
+    # Display the latest revision date for the selected package
+    Write-Host "Latest revision date for package '$($selectedPackage.Name)': $($latestRevision.RevisionDate)"
+}
+
+# Run the function
+Get-PackageRevisionDate
