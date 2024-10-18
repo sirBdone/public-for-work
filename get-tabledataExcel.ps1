@@ -1,9 +1,3 @@
-# Ensure you have the ImportExcel module installed
-# Install-Module -Name ImportExcel
-
-# Assuming $chromedriver is your initialized Selenium WebDriver object
-#$table = $chromedriver.FindElementByTagName('table')
-
 # Function to extract table data into a PSCustomObject array
 function Get-TableData {
     param(
@@ -11,28 +5,36 @@ function Get-TableData {
         [object]$table
     )
 
-    # Get the headers (assuming 'th' tags are present)
+    # Get the <thead> and <tbody> sections
+    $thead = $table.FindElementByTagName('thead')
+    $tbody = $table.FindElementByTagName('tbody')
+
+    # Extract headers from <thead>
     $headers = @()
-    $headerElements = $table.FindElementsByTagName('th')
-    foreach ($header in $headerElements) {
-        $headers += $header.Text.Trim() # Collect header names
+    if ($thead) {
+        $headerElements = $thead.FindElementsByTagName('th')
+        foreach ($header in $headerElements) {
+            $headers += $header.Text.Trim() # Collect header names
+        }
     }
 
-    # If there are no 'th' elements, fall back to first row's 'td' as headers
+    # If no headers found in <thead>, fallback to first row in <tbody> as headers
     if (-not $headers) {
-        $firstRow = $table.FindElementByTagName('tr')
+        $firstRow = $tbody.FindElementByTagName('tr')
         $headerElements = $firstRow.FindElementsByTagName('td')
         foreach ($header in $headerElements) {
             $headers += $header.Text.Trim()
         }
     }
 
-    # Collect table data
-    $rows = $table.FindElementsByTagName('tr')
+    # Collect table data from <tbody>
+    $rows = $tbody.FindElementsByTagName('tr')
     $tableData = @()
 
     foreach ($row in $rows) {
         $cells = $row.FindElementsByTagName('td')
+
+        # Only process rows that match the number of headers
         if ($cells.Count -eq $headers.Count) {
             $dataObject = [PSCustomObject]@{}
 
@@ -47,7 +49,7 @@ function Get-TableData {
     return $tableData
 }
 
-# Extract the table data
+# Assuming $table is already set (e.g., $table = $chromedriver.FindElementByTagName('table'))
 $tableData = Get-TableData -table $table
 
 # Export the table data to an Excel file
