@@ -22,6 +22,6 @@ for ($i = 4; $i -lt $length; $i++) {
 }
 
 # Shuffle and join
-$password = ($password | Get-Random -Count $password.Length) -join ""
+$Password = -join ($password.ToCharArray() | Sort-Object {Get-Random})
 
 return $password
